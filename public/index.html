@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Node.js WebSocket Demo</title>
+    <title>Market Stream Demo</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f4efe8;
-        --panel: #fffaf4;
-        --text: #1f1a17;
-        --muted: #786d63;
-        --accent: #0f766e;
-        --accent-2: #164e63;
-        --border: #dccfc2;
+        --bg: #efe8dc;
+        --panel: #fffaf2;
+        --text: #1f1b17;
+        --muted: #6b6258;
+        --accent: #0e7490;
+        --accent-strong: #155e75;
+        --line: #d8cab8;
+        --up: #166534;
+        --down: #b91c1c;
       }
 
       * {
@@ -24,173 +25,344 @@
         margin: 0;
         min-height: 100vh;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background:
-          radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 30%),
-          linear-gradient(135deg, var(--bg), #efe5d8);
         color: var(--text);
-        display: grid;
-        place-items: center;
+        background:
+          radial-gradient(circle at top left, rgba(14, 116, 144, 0.16), transparent 28%),
+          linear-gradient(135deg, #f5efe6, var(--bg));
         padding: 24px;
       }
 
       .app {
-        width: min(720px, 100%);
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 20px 60px rgba(31, 26, 23, 0.12);
+        width: min(1040px, 100%);
+        margin: 0 auto;
+        background: rgba(255, 250, 242, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: 0 24px 70px rgba(31, 27, 23, 0.12);
+        overflow: hidden;
+      }
+
+      .hero {
+        padding: 28px 28px 18px;
+        border-bottom: 1px solid var(--line);
       }
 
       h1 {
         margin: 0 0 8px;
-        font-size: clamp(1.8rem, 3vw, 2.4rem);
+        font-size: clamp(2rem, 4vw, 3rem);
       }
 
       p {
-        margin: 0 0 20px;
+        margin: 0;
         color: var(--muted);
       }
 
-      form {
-        display: grid;
-        grid-template-columns: 1fr auto;
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
         gap: 12px;
-        margin-bottom: 16px;
+        padding: 18px 28px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
       }
 
-      input,
+      select,
       button {
         border-radius: 14px;
-        border: 1px solid var(--border);
-        padding: 14px 16px;
-        font: inherit;
-      }
-
-      input:focus {
-        outline: 2px solid rgba(15, 118, 110, 0.25);
-        border-color: var(--accent);
-      }
-
-      button {
-        cursor: pointer;
-        color: white;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        border: 0;
-        min-width: 120px;
-      }
-
-      .status {
-        margin-bottom: 16px;
-        font-size: 0.95rem;
-      }
-
-      .messages {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 10px;
-      }
-
-      .messages li {
-        border: 1px solid var(--border);
-        border-radius: 14px;
+        border: 1px solid var(--line);
         padding: 12px 14px;
-        background: rgba(255, 255, 255, 0.72);
+        font: inherit;
+        background: white;
+      }
+
+      button {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        border: 0;
+        cursor: pointer;
       }
 
       .meta {
-        display: block;
+        display: grid;
+        gap: 6px;
+        padding: 0 28px 18px;
         color: var(--muted);
-        font-size: 0.82rem;
-        margin-bottom: 4px;
+        font-size: 0.95rem;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        padding: 0 20px 20px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      th,
+      td {
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+
+      th {
+        font-size: 0.85rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      tbody tr:hover {
+        background: rgba(14, 116, 144, 0.04);
+      }
+
+      .up {
+        color: var(--up);
+        font-weight: 600;
+      }
+
+      .down {
+        color: var(--down);
+        font-weight: 600;
+      }
+
+      .error {
+        color: var(--down);
+        font-style: italic;
       }
 
       @media (max-width: 640px) {
-        form {
-          grid-template-columns: 1fr;
+        body {
+          padding: 16px;
         }
 
-        button {
-          width: 100%;
+        .hero,
+        .controls,
+        .meta {
+          padding-left: 18px;
+          padding-right: 18px;
         }
       }
     </style>
   </head>
   <body>
     <main class="app">
-      <h1>WebSocket Node.js</h1>
-      <p>Ketik pesan untuk menguji koneksi real-time antara browser dan server.</p>
+      <section class="hero">
+        <h1>IDX Market Stream</h1>
+        <p>Demo data market dengan dua mode konsumsi: WebSocket dan polling HTTP.</p>
+      </section>
 
-      <div class="status" id="status">Status: menghubungkan...</div>
+      <section class="controls">
+        <label for="mode-select">Mode</label>
+        <select id="mode-select">
+          <option value="websocket">WebSocket</option>
+          <option value="polling">Polling</option>
+        </select>
+        <button id="refresh-button" type="button">Refresh Sekarang</button>
+      </section>
 
-      <form id="message-form">
-        <input
-          id="message-input"
-          type="text"
-          placeholder="Tulis pesan..."
-          autocomplete="off"
-          required
-        />
-        <button type="submit">Kirim</button>
-      </form>
+      <section class="meta">
+        <div id="status">Status: menyiapkan koneksi...</div>
+        <div id="endpoint">Endpoint: -</div>
+        <div id="updated-at">Update terakhir: -</div>
+      </section>
 
-      <ul class="messages" id="messages"></ul>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Price</th>
+              <th>Change</th>
+              <th>Change %</th>
+              <th>High</th>
+              <th>Low</th>
+            </tr>
+          </thead>
+          <tbody id="market-body"></tbody>
+        </table>
+      </div>
     </main>
 
     <script>
+      const modeSelect = document.getElementById("mode-select");
+      const refreshButton = document.getElementById("refresh-button");
       const statusElement = document.getElementById("status");
-      const form = document.getElementById("message-form");
-      const input = document.getElementById("message-input");
-      const messages = document.getElementById("messages");
+      const endpointElement = document.getElementById("endpoint");
+      const updatedAtElement = document.getElementById("updated-at");
+      const marketBody = document.getElementById("market-body");
 
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const socket = new WebSocket(`${protocol}://${window.location.host}`);
+      let marketInfo = null;
+      let socket = null;
+      let pollingTimer = null;
 
-      function addMessage(data) {
-        const item = document.createElement("li");
-        const meta = document.createElement("span");
-        const text = document.createElement("span");
+      function formatNumber(value) {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          return "-";
+        }
 
-        const sentAt = new Date(data.at).toLocaleTimeString("id-ID", {
+        return new Intl.NumberFormat("id-ID", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(value);
+      }
+
+      function formatTime(value) {
+        if (!value) {
+          return "-";
+        }
+
+        return new Date(value).toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit"
         });
-
-        meta.className = "meta";
-        meta.textContent = `${data.type} • ${sentAt}`;
-        text.textContent = data.message;
-
-        item.append(meta, text);
-        messages.prepend(item);
       }
 
-      socket.addEventListener("open", () => {
-        statusElement.textContent = "Status: terhubung";
-      });
+      function setStatus(text) {
+        statusElement.textContent = `Status: ${text}`;
+      }
 
-      socket.addEventListener("close", () => {
-        statusElement.textContent = "Status: koneksi terputus";
-      });
+      function setEndpoint(text) {
+        endpointElement.textContent = `Endpoint: ${text}`;
+      }
 
-      socket.addEventListener("message", (event) => {
-        const data = JSON.parse(event.data);
-        addMessage(data);
-      });
+      function renderRows(payload) {
+        marketBody.innerHTML = "";
+        updatedAtElement.textContent = `Update terakhir: ${formatTime(payload.at)}`;
 
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
+        for (const item of payload.data || []) {
+          const row = document.createElement("tr");
 
-        const message = input.value.trim();
-        if (!message || socket.readyState !== WebSocket.OPEN) {
+          if (item.error) {
+            row.innerHTML = `
+              <td>${item.symbol}</td>
+              <td colspan="5" class="error">${item.message || "Gagal mengambil data"}</td>
+            `;
+            marketBody.appendChild(row);
+            continue;
+          }
+
+          const changeClass = item.change > 0 ? "up" : item.change < 0 ? "down" : "";
+          const changePrefix = item.change > 0 ? "+" : "";
+
+          row.innerHTML = `
+            <td>${item.symbol}</td>
+            <td>${formatNumber(item.price)}</td>
+            <td class="${changeClass}">${changePrefix}${formatNumber(item.change)}</td>
+            <td class="${changeClass}">${changePrefix}${formatNumber(item.change_percent)}%</td>
+            <td>${formatNumber(item.high)}</td>
+            <td>${formatNumber(item.low)}</td>
+          `;
+
+          marketBody.appendChild(row);
+        }
+      }
+
+      function stopRealtime() {
+        if (socket) {
+          socket.close();
+          socket = null;
+        }
+
+        if (pollingTimer) {
+          clearInterval(pollingTimer);
+          pollingTimer = null;
+        }
+      }
+
+      async function loadMarketByPolling() {
+        const response = await fetch("/api/market");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const payload = await response.json();
+        renderRows(payload);
+        setStatus(`polling aktif tiap ${marketInfo.interval_ms / 1000} detik`);
+        setEndpoint("/api/market");
+      }
+
+      function startPolling() {
+        stopRealtime();
+        void loadMarketByPolling().catch((error) => {
+          setStatus(`polling gagal: ${error.message}`);
+        });
+
+        pollingTimer = window.setInterval(() => {
+          void loadMarketByPolling().catch((error) => {
+            setStatus(`polling gagal: ${error.message}`);
+          });
+        }, marketInfo.interval_ms);
+      }
+
+      function startWebSocket() {
+        stopRealtime();
+
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const wsUrl = `${protocol}://${window.location.host}`;
+        socket = new WebSocket(wsUrl);
+
+        setStatus("menghubungkan websocket...");
+        setEndpoint(wsUrl);
+
+        socket.addEventListener("open", () => {
+          setStatus("websocket terhubung");
+        });
+
+        socket.addEventListener("close", () => {
+          if (modeSelect.value === "websocket") {
+            setStatus("websocket terputus");
+          }
+        });
+
+        socket.addEventListener("message", (event) => {
+          const payload = JSON.parse(event.data);
+
+          if (payload.type === "info") {
+            setStatus(`websocket terhubung, interval ${payload.interval_ms / 1000} detik`);
+            return;
+          }
+
+          if (payload.type === "market") {
+            renderRows(payload);
+          }
+        });
+      }
+
+      function activateMode() {
+        if (modeSelect.value === "polling") {
+          startPolling();
           return;
         }
 
-        socket.send(message);
-        input.value = "";
-        input.focus();
+        startWebSocket();
+      }
+
+      async function bootstrap() {
+        const response = await fetch("/api/info");
+        marketInfo = await response.json();
+        activateMode();
+      }
+
+      modeSelect.addEventListener("change", activateMode);
+
+      refreshButton.addEventListener("click", () => {
+        if (modeSelect.value !== "polling") {
+          setStatus("refresh manual hanya dipakai saat mode polling");
+          return;
+        }
+
+        void loadMarketByPolling().catch((error) => {
+          setStatus(`polling gagal: ${error.message}`);
+        });
+      });
+
+      void bootstrap().catch((error) => {
+        setStatus(`gagal inisialisasi: ${error.message}`);
       });
     </script>
   </body>

@@ -6,6 +6,8 @@ const { WebSocketServer, WebSocket } = require("ws");
 
 const PORT = Number(process.env.PORT || 3001);
 const INTERVAL_MS = Number(process.env.INTERVAL_MS || 5000);
+const publicDir = path.join(__dirname, "public");
+const indexPath = path.join(publicDir, "index.html");
 
 const symbols = [
   "^JKSE",
@@ -19,6 +21,10 @@ const symbols = [
   "UNVR.JK",
   "ICBP.JK"
 ];
+
+let latestMarketPayload = null;
+let lastFetchedAt = 0;
+let inFlightMarketPromise = null;
 
 function resolvePath(filePath) {
   return path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
@@ -53,29 +59,21 @@ function loadTlsOptions() {
   return options;
 }
 
-function createServer() {
-  const tlsOptions = loadTlsOptions();
-  const requestHandler = (_req, res) => {
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(
-      JSON.stringify({
-        name: "market-websocket",
-        protocol: tlsOptions ? "wss" : "ws",
-        port: PORT,
-        interval_ms: INTERVAL_MS,
-        symbols
-      })
-    );
-  };
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(payload));
+}
 
-  const server = tlsOptions
-    ? https.createServer(tlsOptions, requestHandler)
-    : http.createServer(requestHandler);
+function serveIndexHtml(res) {
+  fs.readFile(indexPath, (error, file) => {
+    if (error) {
+      sendJson(res, 500, { error: "Gagal memuat halaman demo" });
+      return;
+    }
 
-  return {
-    server,
-    secure: Boolean(tlsOptions)
-  };
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(file);
+  });
 }
 
 async function fetchSymbol(symbol) {
@@ -121,7 +119,91 @@ async function fetchAll() {
   return Promise.all(symbols.map((symbol) => fetchSymbol(symbol)));
 }
 
-const { server, secure } = createServer();
+async function getMarketPayload() {
+  const now = Date.now();
+
+  if (latestMarketPayload && now - lastFetchedAt < INTERVAL_MS) {
+    return latestMarketPayload;
+  }
+
+  if (inFlightMarketPromise) {
+    return inFlightMarketPromise;
+  }
+
+  inFlightMarketPromise = (async () => {
+    const data = await fetchAll();
+    const payload = {
+      type: "market",
+      data,
+      at: new Date().toISOString()
+    };
+
+    latestMarketPayload = payload;
+    lastFetchedAt = Date.now();
+
+    return payload;
+  })();
+
+  try {
+    return await inFlightMarketPromise;
+  } finally {
+    inFlightMarketPromise = null;
+  }
+}
+
+const tlsOptions = loadTlsOptions();
+const secure = Boolean(tlsOptions);
+
+async function handleRequest(req, res) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method Not Allowed" });
+    return;
+  }
+
+  const baseUrl = `${secure ? "https" : "http"}://${req.headers.host || `localhost:${PORT}`}`;
+  const url = new URL(req.url || "/", baseUrl);
+
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    serveIndexHtml(res);
+    return;
+  }
+
+  if (url.pathname === "/api/info") {
+    sendJson(res, 200, {
+      name: "market-websocket",
+      ws_protocol: secure ? "wss" : "ws",
+      ws_url: `${secure ? "wss" : "ws"}://${req.headers.host || `localhost:${PORT}`}`,
+      polling_url: `${secure ? "https" : "http"}://${req.headers.host || `localhost:${PORT}`}/api/market`,
+      port: PORT,
+      interval_ms: INTERVAL_MS,
+      symbols
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/market") {
+    const payload = await getMarketPayload();
+    sendJson(res, 200, {
+      ...payload,
+      transport: "polling"
+    });
+    return;
+  }
+
+  sendJson(res, 404, { error: "Not Found" });
+}
+
+const requestListener = (req, res) => {
+  handleRequest(req, res).catch((error) => {
+    console.error("Request error:", error.message);
+    sendJson(res, 500, { error: "Internal Server Error" });
+  });
+};
+
+const server = secure
+  ? https.createServer(tlsOptions, requestListener)
+  : http.createServer(requestListener);
+
 const wss = new WebSocketServer({ server });
 
 async function broadcast() {
@@ -129,16 +211,12 @@ async function broadcast() {
     return;
   }
 
-  const data = await fetchAll();
-  const payload = JSON.stringify({
-    type: "market",
-    data,
-    at: new Date().toISOString()
-  });
+  const payload = await getMarketPayload();
+  const message = JSON.stringify(payload);
 
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
+      client.send(message);
     }
   }
 }
@@ -158,20 +236,15 @@ wss.on("connection", async (ws) => {
       message: "connected to market websocket",
       protocol: secure ? "wss" : "ws",
       interval_ms: INTERVAL_MS,
+      polling_url: "/api/market",
       symbols
     })
   );
 
   try {
-    const data = await fetchAll();
+    const payload = await getMarketPayload();
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          type: "market",
-          data,
-          at: new Date().toISOString()
-        })
-      );
+      ws.send(JSON.stringify(payload));
     }
   } catch (error) {
     if (ws.readyState === WebSocket.OPEN) {
@@ -191,6 +264,7 @@ wss.on("connection", async (ws) => {
 
 server.listen(PORT, () => {
   console.log(`${secure ? "WSS" : "WS"} running on port`, PORT);
+  console.log(`Polling endpoint ready at ${secure ? "https" : "http"}://localhost:${PORT}/api/market`);
 });
 
 function shutdown() {

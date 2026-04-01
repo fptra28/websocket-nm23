@@ -1,4 +1,4 @@
-const INTERVAL_MS = Number(process.env.INTERVAL_MS || 1000);
+const INTERVAL_MS = Number(process.env.INTERVAL_MS || 5000);
 
 const symbols = [
   "^JKSE",
@@ -7,7 +7,10 @@ const symbols = [
   "BBRI.JK",
   "BBNI.JK",
   "BMRI.JK",
+  "BUMI.JK",
   "TLKM.JK",
+  "GOTO.JK",
+  "ANTM.JK",
   "ASII.JK",
   "UNVR.JK",
   "ICBP.JK"

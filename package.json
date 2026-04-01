@@ -2,9 +2,11 @@
   "name": "websocket-nm23",
   "version": "1.0.0",
   "description": "Market polling app for Vercel",
-  "main": "api/market.js",
+  "main": "server.js",
   "scripts": {
-    "dev": "vercel dev"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "vercel:dev": "vercel dev"
   },
   "keywords": [
     "nodejs",

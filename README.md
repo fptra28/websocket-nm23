@@ -24,10 +24,28 @@ console.log(data);
 
 ## Local Dev
 
-Jalankan dengan Vercel CLI:
+Kalau mau jalan biasa dengan Node.js:
 
 ```powershell
-vercel dev
+node server.js
+```
+
+Atau:
+
+```powershell
+npm.cmd start
+```
+
+Kalau mau auto-reload lokal:
+
+```powershell
+npm.cmd run dev
+```
+
+Kalau mau meniru environment Vercel:
+
+```powershell
+npm.cmd run vercel:dev
 ```
 
 Kalau CLI belum ada:

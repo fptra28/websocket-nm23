@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Market Stream Demo</title>
+    <title>IDX Market Polling</title>
     <style>
       :root {
         --bg: #efe8dc;
@@ -66,13 +66,17 @@
         border-bottom: 1px solid var(--line);
       }
 
-      select,
+      input,
       button {
         border-radius: 14px;
         border: 1px solid var(--line);
         padding: 12px 14px;
         font: inherit;
         background: white;
+      }
+
+      input {
+        width: 120px;
       }
 
       button {
@@ -151,21 +155,20 @@
   <body>
     <main class="app">
       <section class="hero">
-        <h1>IDX Market Stream</h1>
-        <p>Demo data market dengan dua mode konsumsi: WebSocket dan polling HTTP.</p>
+        <h1>IDX Market Polling</h1>
+        <p>Demo market feed via polling HTTP, cocok untuk deploy di Vercel.</p>
       </section>
 
       <section class="controls">
-        <label for="mode-select">Mode</label>
-        <select id="mode-select">
-          <option value="websocket">WebSocket</option>
-          <option value="polling">Polling</option>
-        </select>
+        <label for="interval-input">Refresh tiap</label>
+        <input id="interval-input" type="number" min="1000" step="1000" value="5000" />
+        <span>ms</span>
+        <button id="apply-button" type="button">Terapkan</button>
         <button id="refresh-button" type="button">Refresh Sekarang</button>
       </section>
 
       <section class="meta">
-        <div id="status">Status: menyiapkan koneksi...</div>
+        <div id="status">Status: menyiapkan polling...</div>
         <div id="endpoint">Endpoint: -</div>
         <div id="updated-at">Update terakhir: -</div>
       </section>
@@ -188,7 +191,8 @@
     </main>
 
     <script>
-      const modeSelect = document.getElementById("mode-select");
+      const intervalInput = document.getElementById("interval-input");
+      const applyButton = document.getElementById("apply-button");
       const refreshButton = document.getElementById("refresh-button");
       const statusElement = document.getElementById("status");
       const endpointElement = document.getElementById("endpoint");
@@ -196,8 +200,8 @@
       const marketBody = document.getElementById("market-body");
 
       let marketInfo = null;
-      let socket = null;
       let pollingTimer = null;
+      let pollingIntervalMs = 5000;
 
       function formatNumber(value) {
         if (typeof value !== "number" || Number.isNaN(value)) {
@@ -262,19 +266,7 @@
         }
       }
 
-      function stopRealtime() {
-        if (socket) {
-          socket.close();
-          socket = null;
-        }
-
-        if (pollingTimer) {
-          clearInterval(pollingTimer);
-          pollingTimer = null;
-        }
-      }
-
-      async function loadMarketByPolling() {
+      async function loadMarket() {
         const response = await fetch("/api/market");
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -282,81 +274,51 @@
 
         const payload = await response.json();
         renderRows(payload);
-        setStatus(`polling aktif tiap ${marketInfo.interval_ms / 1000} detik`);
+        setStatus(`polling aktif tiap ${pollingIntervalMs / 1000} detik`);
         setEndpoint("/api/market");
       }
 
-      function startPolling() {
-        stopRealtime();
-        void loadMarketByPolling().catch((error) => {
-          setStatus(`polling gagal: ${error.message}`);
-        });
-
-        pollingTimer = window.setInterval(() => {
-          void loadMarketByPolling().catch((error) => {
-            setStatus(`polling gagal: ${error.message}`);
-          });
-        }, marketInfo.interval_ms);
-      }
-
-      function startWebSocket() {
-        stopRealtime();
-
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const wsUrl = `${protocol}://${window.location.host}`;
-        socket = new WebSocket(wsUrl);
-
-        setStatus("menghubungkan websocket...");
-        setEndpoint(wsUrl);
-
-        socket.addEventListener("open", () => {
-          setStatus("websocket terhubung");
-        });
-
-        socket.addEventListener("close", () => {
-          if (modeSelect.value === "websocket") {
-            setStatus("websocket terputus");
-          }
-        });
-
-        socket.addEventListener("message", (event) => {
-          const payload = JSON.parse(event.data);
-
-          if (payload.type === "info") {
-            setStatus(`websocket terhubung, interval ${payload.interval_ms / 1000} detik`);
-            return;
-          }
-
-          if (payload.type === "market") {
-            renderRows(payload);
-          }
-        });
-      }
-
-      function activateMode() {
-        if (modeSelect.value === "polling") {
-          startPolling();
-          return;
+      function restartPolling() {
+        if (pollingTimer) {
+          clearInterval(pollingTimer);
         }
 
-        startWebSocket();
+        pollingTimer = window.setInterval(() => {
+          void loadMarket().catch((error) => {
+            setStatus(`polling gagal: ${error.message}`);
+          });
+        }, pollingIntervalMs);
       }
 
       async function bootstrap() {
         const response = await fetch("/api/info");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
         marketInfo = await response.json();
-        activateMode();
+        pollingIntervalMs = marketInfo.interval_ms;
+        intervalInput.value = String(pollingIntervalMs);
+        setEndpoint(marketInfo.polling_url);
+        await loadMarket();
+        restartPolling();
       }
 
-      modeSelect.addEventListener("change", activateMode);
+      applyButton.addEventListener("click", () => {
+        const nextValue = Number(intervalInput.value);
 
-      refreshButton.addEventListener("click", () => {
-        if (modeSelect.value !== "polling") {
-          setStatus("refresh manual hanya dipakai saat mode polling");
+        if (!Number.isFinite(nextValue) || nextValue < 1000) {
+          setStatus("interval minimal 1000 ms");
           return;
         }
 
-        void loadMarketByPolling().catch((error) => {
+        pollingIntervalMs = nextValue;
+        restartPolling();
+        setStatus(`interval polling diubah ke ${pollingIntervalMs / 1000} detik`);
+      });
+
+      refreshButton.addEventListener("click", () => {
+        void loadMarket().catch((error) => {
           setStatus(`polling gagal: ${error.message}`);
         });
       });

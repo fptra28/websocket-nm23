@@ -1,0 +1,19 @@
+{
+  "name": "websocket-nm23",
+  "version": "1.0.0",
+  "description": "Market WebSocket server using ws",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "nodejs",
+    "websocket",
+    "ws"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

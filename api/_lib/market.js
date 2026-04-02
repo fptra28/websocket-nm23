@@ -147,6 +147,7 @@ async function fetchSymbol(symbol) {
 
     return {
       symbol,
+      shortName: meta.shortName || meta.longName || symbol,
       open: round2(open),
       high: round2(high),
       low: round2(low),

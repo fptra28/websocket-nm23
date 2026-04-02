@@ -178,6 +178,7 @@
           <thead>
             <tr>
               <th>Symbol</th>
+              <th>Nama</th>
               <th>Open</th>
               <th>High</th>
               <th>Low</th>
@@ -245,7 +246,7 @@
           if (item.error) {
             row.innerHTML = `
               <td>${item.symbol}</td>
-              <td colspan="6" class="error">${item.message || "Gagal mengambil data"}</td>
+              <td colspan="7" class="error">${item.message || "Gagal mengambil data"}</td>
             `;
             marketBody.appendChild(row);
             continue;
@@ -256,6 +257,7 @@
 
           row.innerHTML = `
             <td>${item.symbol}</td>
+            <td>${item.shortName || "-"}</td>
             <td>${formatNumber(item.open)}</td>
             <td>${formatNumber(item.high)}</td>
             <td>${formatNumber(item.low)}</td>

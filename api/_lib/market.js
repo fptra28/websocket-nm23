@@ -1,20 +1,36 @@
 const INTERVAL_MS = Number(process.env.INTERVAL_MS || 1000);
 
 const symbols = [
-  "^JKSE",
-  "^JKLQ45",
-  "IDX30.JK",
-  "BBCA.JK",
-  "BBRI.JK",
-  "BBNI.JK",
-  "BMRI.JK",
-  "BUMI.JK",
-  "TLKM.JK",
-  "GOTO.JK",
+  "ADRO.JK",
+  "AKRA.JK",
+  "AMRT.JK",
   "ANTM.JK",
   "ASII.JK",
-  "UNVR.JK",
-  "ICBP.JK"
+  "BBCA.JK",
+  "BBNI.JK",
+  "BBRI.JK",
+  "BMRI.JK",
+  "BRPT.JK",
+  "BUMI.JK",
+  "CPIN.JK",
+  "EMTK.JK",
+  "EXCL.JK",
+  "GOTO.JK",
+  "ICBP.JK",
+  "INCO.JK",
+  "INDF.JK",
+  "INKP.JK",
+  "ISAT.JK",
+  "JPFA.JK",
+  "KLBF.JK",
+  "MBMA.JK",
+  "MDKA.JK",
+  "MEDC.JK",
+  "PGAS.JK",
+  "PGEO.JK",
+  "PTBA.JK",
+  "TLKM.JK",
+  "UNVR.JK"
 ];
 
 async function fetchSymbol(symbol) {

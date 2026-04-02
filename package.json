@@ -13,5 +13,8 @@
     "vercel",
     "polling"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.0"
+  }
 }

@@ -178,11 +178,12 @@
           <thead>
             <tr>
               <th>Symbol</th>
-              <th>Price</th>
-              <th>Change</th>
-              <th>Change %</th>
+              <th>Open</th>
               <th>High</th>
               <th>Low</th>
+              <th>Close</th>
+              <th>Change</th>
+              <th>Change %</th>
             </tr>
           </thead>
           <tbody id="market-body"></tbody>
@@ -244,7 +245,7 @@
           if (item.error) {
             row.innerHTML = `
               <td>${item.symbol}</td>
-              <td colspan="5" class="error">${item.message || "Gagal mengambil data"}</td>
+              <td colspan="6" class="error">${item.message || "Gagal mengambil data"}</td>
             `;
             marketBody.appendChild(row);
             continue;
@@ -255,11 +256,12 @@
 
           row.innerHTML = `
             <td>${item.symbol}</td>
-            <td>${formatNumber(item.price)}</td>
-            <td class="${changeClass}">${changePrefix}${formatNumber(item.change)}</td>
-            <td class="${changeClass}">${changePrefix}${formatNumber(item.change_percent)}%</td>
+            <td>${formatNumber(item.open)}</td>
             <td>${formatNumber(item.high)}</td>
             <td>${formatNumber(item.low)}</td>
+            <td>${formatNumber(item.close)}</td>
+            <td class="${changeClass}">${changePrefix}${formatNumber(item.change)}</td>
+            <td class="${changeClass}">${changePrefix}${formatNumber(item.change_percent)}%</td>
           `;
 
           marketBody.appendChild(row);

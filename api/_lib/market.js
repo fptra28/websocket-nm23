@@ -1,6 +1,9 @@
 const INTERVAL_MS = Number(process.env.INTERVAL_MS || 1000);
 
 const symbols = [
+  "^JKSE",
+  "^JKLQ45",
+  "IDX30.JK",
   "ADRO.JK",
   "AKRA.JK",
   "AMRT.JK",
@@ -33,6 +36,85 @@ const symbols = [
   "UNVR.JK"
 ];
 
+function toFiniteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function firstFinite(values) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  for (const value of values) {
+    const number = toFiniteNumber(value);
+    if (number !== null) {
+      return number;
+    }
+  }
+
+  return null;
+}
+
+function lastFinite(values) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const number = toFiniteNumber(values[index]);
+    if (number !== null) {
+      return number;
+    }
+  }
+
+  return null;
+}
+
+function maxFinite(values) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  let max = null;
+  for (const value of values) {
+    const number = toFiniteNumber(value);
+    if (number === null) {
+      continue;
+    }
+
+    if (max === null || number > max) {
+      max = number;
+    }
+  }
+
+  return max;
+}
+
+function minFinite(values) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  let min = null;
+  for (const value of values) {
+    const number = toFiniteNumber(value);
+    if (number === null) {
+      continue;
+    }
+
+    if (min === null || number < min) {
+      min = number;
+    }
+  }
+
+  return min;
+}
+
+function round2(value) {
+  return value === null ? null : Number(value.toFixed(2));
+}
+
 async function fetchSymbol(symbol) {
   try {
     const response = await fetch(
@@ -44,24 +126,31 @@ async function fetchSymbol(symbol) {
     }
 
     const json = await response.json();
-    const meta = json?.chart?.result?.[0]?.meta;
+    const result = json?.chart?.result?.[0];
+    const meta = result?.meta;
 
     if (!meta) {
       throw new Error("Meta data tidak tersedia");
     }
 
-    const price = Number(meta.regularMarketPrice);
-    const prev = Number(meta.previousClose);
-    const diff = price - prev;
-    const changePercent = prev ? (diff / prev) * 100 : 0;
+    const quote = result?.indicators?.quote?.[0];
+    const open = toFiniteNumber(meta.regularMarketOpen) ?? firstFinite(quote?.open);
+    const high = toFiniteNumber(meta.regularMarketDayHigh) ?? maxFinite(quote?.high);
+    const low = toFiniteNumber(meta.regularMarketDayLow) ?? minFinite(quote?.low);
+    const close = toFiniteNumber(meta.regularMarketPrice) ?? lastFinite(quote?.close);
+    const prev = toFiniteNumber(meta.previousClose);
+    const diff = close !== null && prev !== null ? close - prev : null;
+    const changePercent = diff !== null && prev ? (diff / prev) * 100 : null;
 
     return {
       symbol,
-      price,
-      change: Number(diff.toFixed(2)),
-      change_percent: Number(changePercent.toFixed(2)),
-      high: Number(meta.regularMarketDayHigh),
-      low: Number(meta.regularMarketDayLow)
+      open: round2(open),
+      high: round2(high),
+      low: round2(low),
+      close: round2(close),
+      price: round2(close),
+      change: diff === null ? null : Number(diff.toFixed(2)),
+      change_percent: changePercent === null ? null : Number(changePercent.toFixed(2))
     };
   } catch (error) {
     return {

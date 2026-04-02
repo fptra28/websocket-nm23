@@ -1,8 +1,9 @@
-const INTERVAL_MS = Number(process.env.INTERVAL_MS || 5000);
+const INTERVAL_MS = Number(process.env.INTERVAL_MS || 1000);
 
 const symbols = [
   "^JKSE",
   "^JKLQ45",
+  "IDX30.JK",
   "BBCA.JK",
   "BBRI.JK",
   "BBNI.JK",

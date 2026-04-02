@@ -137,10 +137,13 @@ async function fetchSymbol(symbol) {
     const open = toFiniteNumber(meta.regularMarketOpen) ?? firstFinite(quote?.open);
     const high = toFiniteNumber(meta.regularMarketDayHigh) ?? maxFinite(quote?.high);
     const low = toFiniteNumber(meta.regularMarketDayLow) ?? minFinite(quote?.low);
-    const close = toFiniteNumber(meta.regularMarketPrice) ?? lastFinite(quote?.close);
-    const prev = toFiniteNumber(meta.previousClose);
-    const diff = close !== null && prev !== null ? close - prev : null;
-    const changePercent = diff !== null && prev ? (diff / prev) * 100 : null;
+    const marketPrice = toFiniteNumber(meta.regularMarketPrice);
+    const prevClose = toFiniteNumber(meta.previousClose) ?? toFiniteNumber(meta.chartPreviousClose);
+    const intradayClose = lastFinite(quote?.close) ?? marketPrice;
+    const close = prevClose ?? intradayClose;
+    const price = marketPrice ?? intradayClose ?? close;
+    const diff = price !== null && close !== null ? price - close : null;
+    const changePercent = diff !== null && close ? (diff / close) * 100 : null;
 
     return {
       symbol,
@@ -148,7 +151,8 @@ async function fetchSymbol(symbol) {
       high: round2(high),
       low: round2(low),
       close: round2(close),
-      price: round2(close),
+      price: round2(price),
+      previous_close: round2(prevClose),
       change: diff === null ? null : Number(diff.toFixed(2)),
       change_percent: changePercent === null ? null : Number(changePercent.toFixed(2))
     };
